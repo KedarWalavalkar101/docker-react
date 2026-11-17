@@ -1,4 +1,22 @@
-name: Run Tests
+# name: Run Tests
+
+# on:
+#   push:
+#     branches:
+#       - master
+
+# jobs:
+#   test:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - run: docker build -t docker-react -f Dockerfile.dev .
+
+#       - run: docker run -e CI=true docker-react npm test
+
+name: Test and Deploy
 
 on:
   push:
@@ -12,6 +30,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: docker build -t docker-react -f Dockerfile.dev .
+      - name: Build Test Image
+        run: docker build -t docker-react -f Dockerfile.dev .
 
-      - run: docker run -e CI=true docker-react npm test
+      - name: Run Tests
+        run: docker run -e CI=true docker-react npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate deployment package
+        run: zip -r deploy.zip . -x "*.git*"
+
+      - name: Deploy to Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v22
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          application_name: frontend
+          environment_name: Frontend-env
+          region: us-east-1
+          version_label: ${{ github.sha }}
+          deployment_package: deploy.zip
